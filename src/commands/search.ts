@@ -57,7 +57,13 @@ export async function searchCommand(argv: string[]): Promise<string> {
     ]);
   }
   const maxChars = getNumber(flags, "m", "max-chars") ?? 200;
-  const type = (getString(flags, "type") as "auto" | "fast") ?? "auto";
+  const typeStr = getString(flags, "type") ?? "auto";
+  if (typeStr !== "auto" && typeStr !== "fast") {
+    throw new AxiError(`Invalid type: ${typeStr}. Must be auto or fast`, "VALIDATION_ERROR", [
+      'Run `exa-axi search "<query>" --type auto` or `--type fast`',
+    ]);
+  }
+  const type = typeStr as "auto" | "fast";
   const full = getFlag(flags, "full") === true;
 
   let results;

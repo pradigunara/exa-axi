@@ -4,10 +4,14 @@ import type { SearchResult, FetchResult } from "./exa.js";
 export const DEFAULT_TRUNCATE_LEN = 200;
 export const DEFAULT_DETAIL_TRUNCATE_LEN = 500;
 
+function cleanHighlights(text: string): string {
+  return text.replace(/\n?\[\.\.\.\]\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export function truncate(text: string | null, max: number = DEFAULT_TRUNCATE_LEN): string | null {
   if (!text) return null;
   if (max === Infinity || text.length <= max) return text;
-  return text.slice(0, max) + `... (${text.length} chars total, run with -m 0 for full)`;
+  return text.slice(0, max) + `... (${text.length} chars total, use -m 0 for full)`;
 }
 
 export function formatDate(iso: string | null): string {
@@ -19,29 +23,41 @@ export function formatDate(iso: string | null): string {
   }
 }
 
-export function renderSearchList(results: SearchResult[], query: string, truncateLen: number = DEFAULT_TRUNCATE_LEN): string {
+function displayTitle(title: string | null): string {
+  if (!title || title.trim() === "") return "(untitled)";
+  return title;
+}
+
+export function renderSearchList(results: SearchResult[], query: string, truncateLen: number = DEFAULT_TRUNCATE_LEN, showSummary = false): string {
   if (results.length === 0) {
     return encode({ results: "0 results found", query });
   }
 
-  const items = results.map((r) => ({
-    title: r.title ?? "(untitled)",
-    url: r.url,
-    date: formatDate(r.publishedDate),
-    author: r.author ?? "unknown",
-    snippet: truncate(r.highlights?.join(" ... ") ?? r.text ?? null, truncateLen) ?? "",
-  }));
+  const items = results.map((r) => {
+    const rawSnippet = r.highlights?.map(cleanHighlights).join(" ... ") ?? r.text ?? null;
+    const entry: Record<string, unknown> = {
+      title: displayTitle(r.title),
+      url: r.url,
+      date: formatDate(r.publishedDate),
+      author: r.author ?? "unknown",
+      snippet: truncate(rawSnippet, truncateLen) ?? "",
+    };
+    if (showSummary && r.summary) {
+      entry.summary = truncate(r.summary, truncateLen);
+    }
+    return entry;
+  });
 
   return encode({
     count: items.length,
     query,
-    results: items.map(({ title, url, date, author, snippet }) => ({ title, url, date, author, snippet })),
+    results: items,
   });
 }
 
 export function renderSearchDetail(result: SearchResult, index: number, truncateLen: number = DEFAULT_DETAIL_TRUNCATE_LEN): string {
   const detail: Record<string, unknown> = {
-    title: result.title ?? "(untitled)",
+    title: displayTitle(result.title),
     url: result.url,
     date: formatDate(result.publishedDate),
     author: result.author ?? "unknown",
@@ -49,7 +65,7 @@ export function renderSearchDetail(result: SearchResult, index: number, truncate
   };
 
   if (result.highlights?.length) {
-    const joined = result.highlights.join("\n");
+    const joined = cleanHighlights(result.highlights.join("\n"));
     detail.highlights = truncate(joined, truncateLen);
   }
 
@@ -64,13 +80,13 @@ export function renderSearchDetail(result: SearchResult, index: number, truncate
   return encode({ result: detail });
 }
 
-export function renderFetchResults(results: FetchResult[], errors: string[], truncateLen: number = DEFAULT_TRUNCATE_LEN): string {
-  if (results.length === 0 && errors.length === 0) {
-    return encode({ pages: "0 pages fetched" });
+export function renderFetchResults(results: FetchResult[], failedUrls: string[], truncateLen: number = DEFAULT_TRUNCATE_LEN): string {
+  if (results.length === 0 && failedUrls.length === 0) {
+    return encode({ count: 0, pages: "0 pages fetched" });
   }
 
   const items = results.map((r) => ({
-    title: r.title ?? "(untitled)",
+    title: displayTitle(r.title),
     url: r.url,
     date: formatDate(r.publishedDate),
     author: r.author ?? "unknown",
@@ -87,8 +103,8 @@ export function renderFetchResults(results: FetchResult[], errors: string[], tru
     blocks.push(`\n--- ${item.url} ---\n${item.text}`);
   }
 
-  if (errors.length > 0) {
-    blocks.push(encode({ errors }));
+  if (failedUrls.length > 0) {
+    blocks.push(encode({ failed: failedUrls }));
   }
 
   return blocks.join("\n");

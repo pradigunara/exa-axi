@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runAxiCli } from "axi-sdk-js";
 import { encode } from "@toon-format/toon";
-import { renderError } from "./lib/format.js";
+import { renderError, renderHelp } from "./lib/format.js";
 import { HOME_HELP } from "./commands/home.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { fetchCommand, FETCH_HELP } from "./commands/fetch.js";
@@ -33,16 +33,21 @@ const COMMANDS = {
 };
 async function homeCommand() {
     const blocks = [];
-    blocks.push(encode({
-        search: "ready",
+    const status = {
         api_key: process.env.EXA_API_KEY ? "configured" : "missing",
-    }));
+    };
+    blocks.push(encode(status));
     if (!process.env.EXA_API_KEY) {
         blocks.push(encode({
             error: "EXA_API_KEY is not set",
             help: "Export EXA_API_KEY or set it in your shell profile",
         }));
     }
+    blocks.push(renderHelp([
+        'Run `exa-axi search "<query>"` to search the web',
+        'Run `exa-axi fetch <url>` to read a page',
+        'Run `exa-axi advanced "<query>"` for filtered search',
+    ]));
     return blocks.join("\n");
 }
 function readPackageVersion() {

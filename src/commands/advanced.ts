@@ -17,8 +17,6 @@ flags:
   --exclude-domains <D,..>    Comma-separated domains to exclude
   --start-date <YYYY-MM-DD>   Only results published after this date
   --end-date <YYYY-MM-DD>     Only results published before this date
-  --start-crawl <YYYY-MM-DD>  Only results crawled after this date
-  --end-crawl <YYYY-MM-DD>    Only results crawled before this date
   --include-text <TEXT>       Only results containing this text
   --exclude-text <TEXT>       Exclude results containing this text
   --text-max-chars <N>        Max characters returned by Exa API per result
@@ -28,15 +26,29 @@ flags:
   --highlights-query <QUERY>  Focus query for highlights
   --full                      Show full detail for all results
 examples:
-  exa-axi advanced "AI safety research" --category "research paper" --start-date 2024-01-01
+  exa-axi advanced "AI safety" --category "research paper" --start-date 2024-01-01
   exa-axi advanced "Stripe" --category company -n 5 --summary
   exa-axi advanced "Rust async" --include-domains blog.rust-lang.org --highlights
-  exa-axi advanced "long topic" -m 2000 --full
+  exa-axi advanced "long topic" -m 0 --full
 `;
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function parseCsv(val: string | undefined): string[] | undefined {
   if (!val) return undefined;
   return val.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function validateDate(val: string | undefined, flagName: string): string | undefined {
+  if (!val) return undefined;
+  if (!DATE_RE.test(val)) {
+    throw new AxiError(
+      `Invalid date format for ${flagName}: ${val}. Must be YYYY-MM-DD`,
+      "VALIDATION_ERROR",
+      [`Example: --${flagName} 2025-01-15`],
+    );
+  }
+  return val;
 }
 
 export async function advancedCommand(argv: string[]): Promise<string> {
@@ -58,21 +70,35 @@ export async function advancedCommand(argv: string[]): Promise<string> {
     );
   }
 
+  const typeStr = getString(flags, "type") ?? "auto";
+  if (typeStr !== "auto" && typeStr !== "fast" && typeStr !== "instant") {
+    throw new AxiError(`Invalid type: ${typeStr}. Must be auto, fast, or instant`, "VALIDATION_ERROR", [
+      'Run `exa-axi advanced "<query>" --type auto` or `--type fast` or `--type instant`',
+    ]);
+  }
+
+  const numResults = getNumber(flags, "n", "num") ?? 10;
+  if (numResults < 1 || numResults > 100) {
+    throw new AxiError("Number of results must be between 1 and 100", "VALIDATION_ERROR", [
+      'Run `exa-axi advanced "<query>" -n <N>` with N between 1 and 100',
+    ]);
+  }
+
+  const enableSummary = getFlag(flags, "summary") === true;
+
   const opts: AdvancedSearchOptions = {
     query: rawQuery,
-    numResults: (() => { const n = getNumber(flags, "n", "num") ?? 10; if (n < 1 || n > 100) throw new AxiError("Number of results must be between 1 and 100", "VALIDATION_ERROR", ['Run `exa-axi advanced "<query>" -n <N>` with N between 1 and 100']); return n; })(),
-    type: (getString(flags, "type") as "auto" | "fast" | "instant") ?? "auto",
+    numResults,
+    type: typeStr as "auto" | "fast" | "instant",
     category,
     includeDomains: parseCsv(getString(flags, "include-domains")),
     excludeDomains: parseCsv(getString(flags, "exclude-domains")),
-    startPublishedDate: getString(flags, "start-date"),
-    endPublishedDate: getString(flags, "end-date"),
-    startCrawlDate: getString(flags, "start-crawl"),
-    endCrawlDate: getString(flags, "end-crawl"),
+    startPublishedDate: validateDate(getString(flags, "start-date"), "start-date"),
+    endPublishedDate: validateDate(getString(flags, "end-date"), "end-date"),
     includeText: getString(flags, "include-text") ? [getString(flags, "include-text")!] : undefined,
     excludeText: getString(flags, "exclude-text") ? [getString(flags, "exclude-text")!] : undefined,
     textMaxCharacters: getNumber(flags, "text-max-chars") ?? 1000,
-    enableSummary: getFlag(flags, "summary") === true,
+    enableSummary,
     summaryQuery: getString(flags, "summary-query"),
     enableHighlights: getFlag(flags, "highlights") === true,
     highlightsQuery: getString(flags, "highlights-query"),
@@ -95,14 +121,14 @@ export async function advancedCommand(argv: string[]): Promise<string> {
       blocks.push(renderSearchDetail(results[i]!, i, truncLen));
     }
   } else {
-    blocks.push(renderSearchList(results, rawQuery, truncLen));
+    blocks.push(renderSearchList(results, rawQuery, truncLen, enableSummary));
   }
 
   if (results.length > 0) {
     blocks.push(renderHelp([
       'Run `exa-axi fetch <url>` to read a result in full',
-      'Run `exa-axi advanced "<query>" --full` for full details',
-      ...(opts.enableSummary ? [] : ['Run `exa-axi advanced "<query>" --summary` to add summaries']),
+      ...(full ? [] : ['Run `exa-axi advanced "<query>" --full` for full details']),
+      ...(!enableSummary ? ['Run `exa-axi advanced "<query>" --summary` to add summaries'] : []),
     ]));
   } else {
     blocks.push(renderHelp([
