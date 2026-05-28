@@ -1,0 +1,4 @@
+interface:
+  display_name: "Exa AXI"
+  short_description: "Use exa-axi for token-efficient web search, page fetching, and filtered search via Exa AI."
+  default_prompt: "Use exa-axi to search the web, fetch page content, and run advanced filtered searches. Output is compact TOON format optimized for agents."

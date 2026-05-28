@@ -78,6 +78,12 @@ npm run build
 npm link
 ```
 
+## Install skill (for agents)
+
+```bash
+npx skills add pradigunara/exa-axi
+```
+
 ## License
 
 MIT
