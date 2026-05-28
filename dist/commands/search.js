@@ -6,14 +6,15 @@ export const SEARCH_HELP = `usage: exa-axi search <query> [flags]
 description: Search the web using Exa AI. Returns clean text content from top results.
 flags:
   -n/--num <N>          Number of results (default: 10)
-  --category <CAT>      Filter by: company, research paper, news, pdf, github, personal site, people, financial report
+  -m/--max-chars <N>    Max chars per snippet/detail (default: 500, set 0 for no truncation)
+  --category <CAT>      Filter by: company, research paper, news, pdf, personal site, people, financial report
   --type <TYPE>         Search type: auto (default), fast
   --full                Show full detail for all results (not just list view)
-  --fields <FIELDS>     Comma-separated: title,url,date,author,score,highlights,summary,text
 examples:
   exa-axi search "React vs Vue performance"
   exa-axi search "category:people software engineer" --category people
   exa-axi search "AI startups" -n 5 --category company
+  exa-axi search "Rust async" -m 2000 --full
 `;
 export async function searchCommand(argv) {
     const { positional, flags } = parseArgs(argv);
@@ -35,6 +36,7 @@ export async function searchCommand(argv) {
     const flagCategory = getString(flags, "category");
     const category = flagCategory ?? inlineCategory;
     const numResults = getNumber(flags, "n", "num") ?? 10;
+    const maxChars = getNumber(flags, "m", "max-chars") ?? 500;
     const type = getString(flags, "type") ?? "auto";
     const full = getFlag(flags, "full") === true;
     const results = await search({
@@ -43,14 +45,15 @@ export async function searchCommand(argv) {
         type,
         category,
     });
+    const truncLen = maxChars === 0 ? Infinity : maxChars;
     const blocks = [];
     if (full && results.length > 0) {
         for (let i = 0; i < results.length; i++) {
-            blocks.push(renderSearchDetail(results[i], i));
+            blocks.push(renderSearchDetail(results[i], i, truncLen));
         }
     }
     else {
-        blocks.push(renderSearchList(results, cleanedQuery));
+        blocks.push(renderSearchList(results, cleanedQuery, truncLen));
     }
     if (results.length > 0) {
         blocks.push(renderHelp([

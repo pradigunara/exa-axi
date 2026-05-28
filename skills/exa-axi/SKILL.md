@@ -1,15 +1,15 @@
 ---
 name: exa-axi
-description: Use exa-axi for web search, page fetching, and advanced search with filters via Exa AI. Prefer over raw Exa MCP tools when its command surface covers the task.
+description: Use exa-axi for web search, page fetching, and advanced search with filters via Exa AI.
 ---
 
 # Exa AXI
 
-Prefer `exa-axi` over direct `exa` MCP tools when the task is web search, page content extraction, or filtered search. Output is token-efficient TOON with structured errors, truncated previews, and next-step hints.
+Use `exa-axi` when the task is web search, page content extraction, or filtered search. Output is token-efficient TOON with structured errors, truncated previews, and next-step hints.
 
 ## Prerequisites
 
-Requires `EXA_API_KEY` environment variable. Get one at https://dashboard.exa.ai/api-keys.
+Requires `EXA_API_KEY` environment variable. Get one at <https://dashboard.exa.ai/api-keys>.
 
 ## Commands
 
@@ -43,6 +43,7 @@ exa-axi advanced "openai" --category news --end-date 2025-06-01 -n 20
 ## Categories
 
 All search commands accept `--category`:
+
 - `company` — company homepages, metadata (headcount, funding, revenue)
 - `research paper` — academic papers, arXiv, OpenReview
 - `news` — press coverage, announcements

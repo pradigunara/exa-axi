@@ -1,9 +1,10 @@
 import { encode } from "@toon-format/toon";
 import type { SearchResult, FetchResult } from "./exa.js";
 
-const TRUNCATE_LEN = 500;
+export const DEFAULT_TRUNCATE_LEN = 500;
+export const DEFAULT_DETAIL_TRUNCATE_LEN = 1000;
 
-function truncate(text: string | null, max = TRUNCATE_LEN): string | null {
+export function truncate(text: string | null, max: number = DEFAULT_TRUNCATE_LEN): string | null {
   if (!text) return null;
   if (text.length <= max) return text;
   return text.slice(0, max) + `... (truncated, ${text.length} chars total)`;
@@ -18,7 +19,7 @@ export function formatDate(iso: string | null): string {
   }
 }
 
-export function renderSearchList(results: SearchResult[], query: string): string {
+export function renderSearchList(results: SearchResult[], query: string, truncateLen: number = DEFAULT_TRUNCATE_LEN): string {
   if (results.length === 0) {
     return encode({ results: "0 results found", query });
   }
@@ -28,7 +29,7 @@ export function renderSearchList(results: SearchResult[], query: string): string
     url: r.url,
     date: formatDate(r.publishedDate),
     author: r.author ?? "unknown",
-    snippet: truncate(r.highlights?.join(" ... ") ?? r.text ?? null) ?? "",
+    snippet: truncate(r.highlights?.join(" ... ") ?? r.text ?? null, truncateLen) ?? "",
   }));
 
   const blocks: string[] = [];
@@ -50,7 +51,7 @@ export function renderSearchList(results: SearchResult[], query: string): string
   return blocks.join("\n");
 }
 
-export function renderSearchDetail(result: SearchResult, index: number): string {
+export function renderSearchDetail(result: SearchResult, index: number, truncateLen: number = DEFAULT_DETAIL_TRUNCATE_LEN): string {
   const detail: Record<string, any> = {
     title: result.title ?? "(untitled)",
     url: result.url,
@@ -64,17 +65,19 @@ export function renderSearchDetail(result: SearchResult, index: number): string 
   }
 
   if (result.summary) {
-    detail.summary = truncate(result.summary, 1000);
+    detail.summary = truncate(result.summary, truncateLen);
+
   }
 
   if (result.text) {
-    detail.text = truncate(result.text, 1000);
+
+    detail.text = truncate(result.text, truncateLen);
   }
 
   return encode({ result: detail });
 }
 
-export function renderFetchResults(results: FetchResult[], errors: string[]): string {
+export function renderFetchResults(results: FetchResult[], errors: string[], truncateLen: number = DEFAULT_TRUNCATE_LEN): string {
   if (results.length === 0 && errors.length === 0) {
     return encode({ pages: "0 pages fetched" });
   }
@@ -84,7 +87,7 @@ export function renderFetchResults(results: FetchResult[], errors: string[]): st
     url: r.url,
     date: formatDate(r.publishedDate),
     author: r.author ?? "unknown",
-    text: truncate(r.text) ?? "(no content)",
+    text: truncate(r.text, truncateLen) ?? "(no content)",
   }));
 
   const blocks: string[] = [];

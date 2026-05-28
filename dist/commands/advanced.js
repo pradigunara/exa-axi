@@ -7,7 +7,8 @@ export const ADVANCED_HELP = `usage: exa-axi advanced <query> [flags]
 description: Advanced search with full control over filters, domains, dates, and content options.
 flags:
   -n/--num <N>                Number of results (default: 10, max: 100)
-  --category <CAT>            Filter by: company, research paper, news, pdf, github, personal site, people, financial report
+  -m/--max-chars <N>          Max chars per snippet/detail (default: 1000, set 0 for no truncation)
+  --category <CAT>            Filter by: company, research paper, news, pdf, personal site, people, financial report
   --type <TYPE>               Search type: auto (default), fast, instant
   --include-domains <D,..>    Comma-separated domains to include (e.g., arxiv.org,github.com)
   --exclude-domains <D,..>    Comma-separated domains to exclude
@@ -17,7 +18,7 @@ flags:
   --end-crawl <YYYY-MM-DD>    Only results crawled before this date
   --include-text <TEXT>       Only results containing this text
   --exclude-text <TEXT>       Exclude results containing this text
-  --text-max-chars <N>        Max characters per result (default: 1000)
+  --text-max-chars <N>        Max characters returned by Exa API per result
   --summary                   Enable summary generation
   --summary-query <QUERY>     Focus query for summaries
   --highlights                Enable highlights
@@ -27,6 +28,7 @@ examples:
   exa-axi advanced "AI safety research" --category "research paper" --start-date 2024-01-01
   exa-axi advanced "Stripe" --category company -n 5 --summary
   exa-axi advanced "Rust async" --include-domains blog.rust-lang.org --highlights
+  exa-axi advanced "long topic" -m 2000 --full
 `;
 function parseCsv(val) {
     if (!val)
@@ -66,14 +68,16 @@ export async function advancedCommand(argv) {
     };
     const results = await advancedSearch(opts);
     const full = getFlag(flags, "full") === true;
+    const maxChars = getNumber(flags, "m", "max-chars") ?? 1000;
+    const truncLen = maxChars === 0 ? Infinity : maxChars;
     const blocks = [];
     if (full && results.length > 0) {
         for (let i = 0; i < results.length; i++) {
-            blocks.push(renderSearchDetail(results[i], i));
+            blocks.push(renderSearchDetail(results[i], i, truncLen));
         }
     }
     else {
-        blocks.push(renderSearchList(results, query));
+        blocks.push(renderSearchList(results, query, truncLen));
     }
     if (results.length > 0) {
         blocks.push(renderHelp([
