@@ -1,12 +1,12 @@
 import { encode } from "@toon-format/toon";
-export const DEFAULT_TRUNCATE_LEN = 500;
-export const DEFAULT_DETAIL_TRUNCATE_LEN = 1000;
+export const DEFAULT_TRUNCATE_LEN = 200;
+export const DEFAULT_DETAIL_TRUNCATE_LEN = 500;
 export function truncate(text, max = DEFAULT_TRUNCATE_LEN) {
     if (!text)
         return null;
-    if (text.length <= max)
+    if (max === Infinity || text.length <= max)
         return text;
-    return text.slice(0, max) + `... (truncated, ${text.length} chars total)`;
+    return text.slice(0, max) + `... (${text.length} chars total, run with -m 0 for full)`;
 }
 export function formatDate(iso) {
     if (!iso)
@@ -29,20 +29,11 @@ export function renderSearchList(results, query, truncateLen = DEFAULT_TRUNCATE_
         author: r.author ?? "unknown",
         snippet: truncate(r.highlights?.join(" ... ") ?? r.text ?? null, truncateLen) ?? "",
     }));
-    const blocks = [];
-    blocks.push(encode({
+    return encode({
         count: items.length,
         query,
-        results: items.map(({ title, url, date, author }) => ({ title, url, date, author })),
-    }));
-    const snippets = items
-        .filter((i) => i.snippet)
-        .map((i) => `  ${i.url}: ${i.snippet}`)
-        .join("\n");
-    if (snippets) {
-        blocks.push(`snippets:\n${snippets}`);
-    }
-    return blocks.join("\n");
+        results: items.map(({ title, url, date, author, snippet }) => ({ title, url, date, author, snippet })),
+    });
 }
 export function renderSearchDetail(result, index, truncateLen = DEFAULT_DETAIL_TRUNCATE_LEN) {
     const detail = {
@@ -53,7 +44,8 @@ export function renderSearchDetail(result, index, truncateLen = DEFAULT_DETAIL_T
         score: result.score,
     };
     if (result.highlights?.length) {
-        detail.highlights = result.highlights;
+        const joined = result.highlights.join("\n");
+        detail.highlights = truncate(joined, truncateLen);
     }
     if (result.summary) {
         detail.summary = truncate(result.summary, truncateLen);

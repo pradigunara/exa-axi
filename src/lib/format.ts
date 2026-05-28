@@ -1,13 +1,13 @@
 import { encode } from "@toon-format/toon";
 import type { SearchResult, FetchResult } from "./exa.js";
 
-export const DEFAULT_TRUNCATE_LEN = 500;
-export const DEFAULT_DETAIL_TRUNCATE_LEN = 1000;
+export const DEFAULT_TRUNCATE_LEN = 200;
+export const DEFAULT_DETAIL_TRUNCATE_LEN = 500;
 
 export function truncate(text: string | null, max: number = DEFAULT_TRUNCATE_LEN): string | null {
   if (!text) return null;
-  if (text.length <= max) return text;
-  return text.slice(0, max) + `... (truncated, ${text.length} chars total)`;
+  if (max === Infinity || text.length <= max) return text;
+  return text.slice(0, max) + `... (${text.length} chars total, run with -m 0 for full)`;
 }
 
 export function formatDate(iso: string | null): string {
@@ -32,27 +32,15 @@ export function renderSearchList(results: SearchResult[], query: string, truncat
     snippet: truncate(r.highlights?.join(" ... ") ?? r.text ?? null, truncateLen) ?? "",
   }));
 
-  const blocks: string[] = [];
-  blocks.push(encode({
+  return encode({
     count: items.length,
     query,
-    results: items.map(({ title, url, date, author }) => ({ title, url, date, author })),
-  }));
-
-  const snippets = items
-    .filter((i) => i.snippet)
-    .map((i) => `  ${i.url}: ${i.snippet}`)
-    .join("\n");
-
-  if (snippets) {
-    blocks.push(`snippets:\n${snippets}`);
-  }
-
-  return blocks.join("\n");
+    results: items.map(({ title, url, date, author, snippet }) => ({ title, url, date, author, snippet })),
+  });
 }
 
 export function renderSearchDetail(result: SearchResult, index: number, truncateLen: number = DEFAULT_DETAIL_TRUNCATE_LEN): string {
-  const detail: Record<string, any> = {
+  const detail: Record<string, unknown> = {
     title: result.title ?? "(untitled)",
     url: result.url,
     date: formatDate(result.publishedDate),
@@ -61,16 +49,15 @@ export function renderSearchDetail(result: SearchResult, index: number, truncate
   };
 
   if (result.highlights?.length) {
-    detail.highlights = result.highlights;
+    const joined = result.highlights.join("\n");
+    detail.highlights = truncate(joined, truncateLen);
   }
 
   if (result.summary) {
     detail.summary = truncate(result.summary, truncateLen);
-
   }
 
   if (result.text) {
-
     detail.text = truncate(result.text, truncateLen);
   }
 

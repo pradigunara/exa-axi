@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runAxiCli } from "axi-sdk-js";
 import { encode } from "@toon-format/toon";
+import { renderError } from "./lib/format.js";
 import { HOME_HELP } from "./commands/home.js";
 import { searchCommand, SEARCH_HELP } from "./commands/search.js";
 import { fetchCommand, FETCH_HELP } from "./commands/fetch.js";
@@ -73,6 +74,9 @@ export async function main(options = {}) {
         },
         getCommandHelp: (command) => COMMAND_HELP[command],
         ...(options.stdout ? { stdout: options.stdout } : {}),
+        renderUnknownCommand: (cmd) => renderError(`Unknown command: ${cmd}`, "VALIDATION_ERROR", [
+            "Run `exa-axi --help` to see available commands",
+        ]) + "\n",
         hooks: process.env.EXA_AXI_DISABLE_HOOKS === "1" ? false : undefined,
     });
 }

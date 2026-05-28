@@ -1,7 +1,8 @@
 import { AxiError } from "axi-sdk-js";
-import { parseArgs, getString, getNumber } from "../lib/args.js";
+import { parseArgs, getNumber } from "../lib/args.js";
 import { fetchPages } from "../lib/exa.js";
 import { renderFetchResults, renderHelp } from "../lib/format.js";
+import { mapApiError } from "../lib/errors.js";
 export const FETCH_HELP = `usage: exa-axi fetch <url> [url2 ...] [flags]
 description: Read webpage content as clean markdown. Batch multiple URLs in one call.
 flags:
@@ -19,7 +20,13 @@ export async function fetchCommand(argv) {
         ]);
     }
     const maxCharacters = getNumber(flags, "m", "max-chars") ?? 3000;
-    const results = await fetchPages({ urls, maxCharacters });
+    let results;
+    try {
+        results = await fetchPages({ urls, maxCharacters });
+    }
+    catch (error) {
+        throw mapApiError(error);
+    }
     const errors = [];
     const blocks = [renderFetchResults(results, errors)];
     if (results.length > 0) {

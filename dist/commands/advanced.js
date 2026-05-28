@@ -2,12 +2,13 @@ import { AxiError } from "axi-sdk-js";
 import { parseArgs, getString, getNumber, getFlag } from "../lib/args.js";
 import { advancedSearch } from "../lib/exa.js";
 import { renderSearchList, renderSearchDetail, renderHelp } from "../lib/format.js";
-const VALID_CATEGORIES = ["company", "research paper", "news", "pdf", "personal site", "people", "financial report"];
+import { mapApiError } from "../lib/errors.js";
+export const VALID_CATEGORIES = ["company", "research paper", "news", "pdf", "personal site", "people", "financial report"];
 export const ADVANCED_HELP = `usage: exa-axi advanced <query> [flags]
 description: Advanced search with full control over filters, domains, dates, and content options.
 flags:
   -n/--num <N>                Number of results (default: 10, max: 100)
-  -m/--max-chars <N>          Max chars per snippet/detail (default: 1000, set 0 for no truncation)
+  -m/--max-chars <N>          Max chars per snippet/detail (default: 500, set 0 for no truncation)
   --category <CAT>            Filter by: company, research paper, news, pdf, personal site, people, financial report
   --type <TYPE>               Search type: auto (default), fast, instant
   --include-domains <D,..>    Comma-separated domains to include (e.g., arxiv.org,github.com)
@@ -37,8 +38,8 @@ function parseCsv(val) {
 }
 export async function advancedCommand(argv) {
     const { positional, flags } = parseArgs(argv);
-    const query = positional.join(" ");
-    if (!query) {
+    const rawQuery = positional.join(" ").trim();
+    if (!rawQuery) {
         throw new AxiError("Search query is required", "VALIDATION_ERROR", [
             'Run `exa-axi advanced "<query>"` to search with advanced filters',
         ]);
@@ -48,8 +49,9 @@ export async function advancedCommand(argv) {
         throw new AxiError(`Invalid category: ${category}`, "VALIDATION_ERROR", [`Valid categories: ${VALID_CATEGORIES.join(", ")}`]);
     }
     const opts = {
-        query,
-        numResults: getNumber(flags, "n", "num") ?? 10,
+        query: rawQuery,
+        numResults: (() => { const n = getNumber(flags, "n", "num") ?? 10; if (n < 1 || n > 100)
+            throw new AxiError("Number of results must be between 1 and 100", "VALIDATION_ERROR", ['Run `exa-axi advanced "<query>" -n <N>` with N between 1 and 100']); return n; })(),
         type: getString(flags, "type") ?? "auto",
         category,
         includeDomains: parseCsv(getString(flags, "include-domains")),
@@ -66,9 +68,15 @@ export async function advancedCommand(argv) {
         enableHighlights: getFlag(flags, "highlights") === true,
         highlightsQuery: getString(flags, "highlights-query"),
     };
-    const results = await advancedSearch(opts);
+    let results;
+    try {
+        results = await advancedSearch(opts);
+    }
+    catch (error) {
+        throw mapApiError(error);
+    }
     const full = getFlag(flags, "full") === true;
-    const maxChars = getNumber(flags, "m", "max-chars") ?? 1000;
+    const maxChars = getNumber(flags, "m", "max-chars") ?? 500;
     const truncLen = maxChars === 0 ? Infinity : maxChars;
     const blocks = [];
     if (full && results.length > 0) {
@@ -77,7 +85,7 @@ export async function advancedCommand(argv) {
         }
     }
     else {
-        blocks.push(renderSearchList(results, query, truncLen));
+        blocks.push(renderSearchList(results, rawQuery, truncLen));
     }
     if (results.length > 0) {
         blocks.push(renderHelp([

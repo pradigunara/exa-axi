@@ -1,12 +1,14 @@
 import { AxiError } from "axi-sdk-js";
 import { parseArgs, getString, getNumber, getFlag } from "../lib/args.js";
 import { search } from "../lib/exa.js";
-import { renderSearchList, renderSearchDetail, renderHelp, renderError } from "../lib/format.js";
+import { VALID_CATEGORIES } from "./advanced.js";
+import { renderSearchList, renderSearchDetail, renderHelp } from "../lib/format.js";
+import { mapApiError } from "../lib/errors.js";
 export const SEARCH_HELP = `usage: exa-axi search <query> [flags]
 description: Search the web using Exa AI. Returns clean text content from top results.
 flags:
   -n/--num <N>          Number of results (default: 10)
-  -m/--max-chars <N>    Max chars per snippet/detail (default: 500, set 0 for no truncation)
+  -m/--max-chars <N>    Max chars per snippet (default: 200, set 0 for no truncation)
   --category <CAT>      Filter by: company, research paper, news, pdf, personal site, people, financial report
   --type <TYPE>         Search type: auto (default), fast
   --full                Show full detail for all results (not just list view)
@@ -14,37 +16,50 @@ examples:
   exa-axi search "React vs Vue performance"
   exa-axi search "category:people software engineer" --category people
   exa-axi search "AI startups" -n 5 --category company
-  exa-axi search "Rust async" -m 2000 --full
+  exa-axi search "Rust async" -m 0 --full
 `;
 export async function searchCommand(argv) {
     const { positional, flags } = parseArgs(argv);
-    const query = positional.join(" ");
-    if (!query) {
+    const rawQuery = positional.join(" ").trim();
+    if (!rawQuery) {
         throw new AxiError("Search query is required", "VALIDATION_ERROR", [
             'Run `exa-axi search "<query>"` to search the web',
         ]);
     }
+    const flagCategory = getString(flags, "category");
+    if (flagCategory && !VALID_CATEGORIES.includes(flagCategory)) {
+        throw new AxiError(`Invalid category: ${flagCategory}`, "VALIDATION_ERROR", [`Valid categories: ${VALID_CATEGORIES.join(", ")}`]);
+    }
     // Extract inline category: prefix from query (e.g., "category:people John Doe")
-    const categoryMatch = query.match(/\bcategory:(company|research\s*paper|news|pdf|personal\s*site|people|financial\s*report)\b/i);
-    let cleanedQuery = query;
+    const categoryMatch = rawQuery.match(/\bcategory:(company|research\s*paper|news|pdf|personal\s*site|people|financial\s*report)\b/i);
+    let cleanedQuery = rawQuery;
     let inlineCategory;
     if (categoryMatch) {
-        const cat = categoryMatch[1].toLowerCase().replace(/\s+/g, " ");
-        inlineCategory = cat;
-        cleanedQuery = query.replace(categoryMatch[0], "").replace(/\s+/g, " ").trim();
+        inlineCategory = categoryMatch[1].toLowerCase().replace(/\s+/g, " ");
+        cleanedQuery = rawQuery.replace(categoryMatch[0], "").replace(/\s+/g, " ").trim();
     }
-    const flagCategory = getString(flags, "category");
     const category = flagCategory ?? inlineCategory;
     const numResults = getNumber(flags, "n", "num") ?? 10;
-    const maxChars = getNumber(flags, "m", "max-chars") ?? 500;
+    if (numResults < 1 || numResults > 100) {
+        throw new AxiError("Number of results must be between 1 and 100", "VALIDATION_ERROR", [
+            'Run `exa-axi search "<query>" -n <N>` with N between 1 and 100',
+        ]);
+    }
+    const maxChars = getNumber(flags, "m", "max-chars") ?? 200;
     const type = getString(flags, "type") ?? "auto";
     const full = getFlag(flags, "full") === true;
-    const results = await search({
-        query: cleanedQuery,
-        numResults,
-        type,
-        category,
-    });
+    let results;
+    try {
+        results = await search({
+            query: cleanedQuery,
+            numResults,
+            type,
+            category,
+        });
+    }
+    catch (error) {
+        throw mapApiError(error);
+    }
     const truncLen = maxChars === 0 ? Infinity : maxChars;
     const blocks = [];
     if (full && results.length > 0) {
@@ -57,8 +72,8 @@ export async function searchCommand(argv) {
     }
     if (results.length > 0) {
         blocks.push(renderHelp([
-            'Run `exa-axi fetch <url>` to read a specific result in full',
-            'Run `exa-axi search "<query>" --full` to see full details for all results',
+            'Run `exa-axi fetch <url>` to read a result in full',
+            ...(full ? [] : ['Run `exa-axi search "<query>" --full` for detailed view']),
             ...(results.length >= numResults ? ['Run `exa-axi search "<query>" -n <N>` to get more results'] : []),
         ]));
     }
