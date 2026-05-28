@@ -12,7 +12,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "bun run src/bin/exa-axi.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "release": "npm run build && git add dist && git commit -m \"rebuild dist\" --allow-empty && npm version patch -m \"v%s\" && git push --follow-tags"
   },
   "engines": {
     "node": ">=20"

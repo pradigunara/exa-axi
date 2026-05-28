@@ -5,11 +5,15 @@ AXI-compliant CLI for [Exa](https://exa.ai) web search. Token-efficient TOON out
 ## Install
 
 ```bash
-# Bun (recommended)
 bun install -g pradigunara/exa-axi
+```
 
-# npm
-npm install -g pradigunara/exa-axi
+If you get an old cached version, clear the cache first:
+
+```bash
+bun remove -g exa-axi
+rm -rf ~/.bun/install/cache/*exa*
+bun install -g pradigunara/exa-axi
 ```
 
 ## Setup
@@ -83,6 +87,16 @@ npm link
 ```bash
 npx skills add pradigunara/exa-axi
 ```
+
+## Releasing
+
+Bumping the version invalidates package manager caches. Run:
+
+```bash
+npm run release
+```
+
+This rebuilds dist, bumps the patch version, commits, tags, and pushes.
 
 ## License
 
