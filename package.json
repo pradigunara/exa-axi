@@ -1,6 +1,6 @@
 {
   "name": "exa-axi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "AXI-compliant Exa search CLI — token-efficient TOON output for web search, fetch, and advanced search",
   "type": "module",
   "bin": {
