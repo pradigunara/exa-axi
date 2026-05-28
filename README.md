@@ -5,6 +5,10 @@ AXI-compliant CLI for [Exa](https://exa.ai) web search. Token-efficient TOON out
 ## Install
 
 ```bash
+# Bun (recommended)
+bun install -g pradigunara/exa-axi
+
+# npm
 npm install -g pradigunara/exa-axi
 ```
 
